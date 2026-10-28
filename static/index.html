@@ -1,0 +1,16 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="router-token" content="__TOKEN__"><link rel="icon" href="/icon.png"><title>IP Router · Reefy</title><link rel="stylesheet" href="/style.css"><script src="/app.js" defer></script></head>
+<body><main><header><a class="brand" href="/"><img src="/icon.png" width="32" height="32" alt="">REEFY <span>/ IP Router</span></a><span id="badge" class="badge">Checking</span></header>
+
+<div id="message" role="status" hidden></div>
+<div class="layout"><section class="card"><div class="section-head"><h1>Settings</h1></div>
+<form id="settings"><label for="uplink">Internet connection</label><select id="uplink" required></select>
+<label for="downstream">Downstream adapter</label><select id="downstream" required></select>
+<div class="divider"></div><label for="subnet">Downstream subnet</label><input id="subnet" required spellcheck="false" placeholder="10.77.0.0/24"><p class="hint">Gateway: <strong id="gateway">-</strong></p>
+<label class="check"><input id="dhcp" type="checkbox" checked><span><strong>DHCP server</strong><small>Assign addresses automatically.</small></span></label>
+<label class="check"><input id="protect_lan" type="checkbox" checked><span><strong>Protect upstream LAN</strong><small>Block private and directly connected upstream networks.</small></span></label>
+<div id="manual" class="notice" hidden>DHCP is off. Configure downstream devices with an address in this subnet, the gateway shown above, and a public DNS server.</div>
+<div class="actions"><button type="submit" id="apply">Apply and start</button><button type="button" id="stop" class="secondary" hidden>Stop routing</button></div>
+<p class="hint">Settings restore after reboot.</p></form></section>
+<section class="card clients"><div class="section-head"><h2>DHCP leases</h2><span id="count">0</span></div><div id="clients"><p class="hint">No leases.</p></div><p class="hint">Leases may include disconnected devices.</p></section></div>
+<footer>Stop routing to change adapters.</footer></main></body></html>

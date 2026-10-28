@@ -1,0 +1,37 @@
+{
+  "slug": "router",
+  "name": "IP Router",
+  "description": "Share internet through a separate Ethernet adapter with DHCP and LAN isolation.",
+  "version": "v2026.10.28-04",
+  "image": "ghcr.io/reefyai/reefy-iprouter:v2026.10.28-04",
+  "default_port": 8080,
+  "network_mode": "host",
+  "dynamic_port": true,
+  "needs_llm": false,
+  "cap_drop": [
+    "ALL"
+  ],
+  "cap_add": [
+    "NET_ADMIN",
+    "NET_RAW",
+    "NET_BIND_SERVICE",
+    "SETGID"
+  ],
+  "host_mounts": [
+    "/run/systemd/network:/host-network:rw",
+    "/run/dbus/system_bus_socket:/run/dbus/system_bus_socket:rw"
+  ],
+  "volumes": {
+    "data": {
+      "mount": "/data",
+      "uid": 0,
+      "backup": [
+        "borgbase"
+      ]
+    }
+  },
+  "icon": "icon.png",
+  "tags": [
+    "network"
+  ]
+}
