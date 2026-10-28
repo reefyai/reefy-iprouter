@@ -37,8 +37,8 @@ def serve(router, address, port):
         def do_GET(self):
             if self.path == '/':
                 return self.reply(200, (ROOT / 'static/index.html').read_text().replace('__TOKEN__', token), 'text/html; charset=utf-8')
-            if self.path == '/icon.png':
-                return self.reply(200, (ROOT / 'reefy/icon.png').read_bytes(), 'image/png')
+            if self.path in ('/icon.png', '/favicon.png'):
+                return self.reply(200, (ROOT / 'reefy' / self.path[1:]).read_bytes(), 'image/png')
             if self.path in ('/app.js', '/style.css'):
                 content_type = 'text/javascript' if self.path.endswith('.js') else 'text/css'
                 return self.reply(200, (ROOT / 'static' / self.path[1:]).read_bytes(), content_type)

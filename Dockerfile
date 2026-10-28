@@ -3,10 +3,10 @@ RUN apt-get update && apt-get install -y --no-install-recommends iproute2 iptabl
 WORKDIR /app
 COPY engine.py server.py ./
 COPY static ./static
-COPY reefy/icon.png ./reefy/icon.png
+COPY reefy/icon.png reefy/favicon.png ./reefy/
 # Runtime needs the manifest's explicit host-network permissions. The private
 # builder always overrides this to UID 65534 with all capabilities dropped.
 USER 0
 EXPOSE 8080
-LABEL org.opencontainers.image.title="Reefy IP Router" org.opencontainers.image.version="v2026.10.28-04"
+LABEL org.opencontainers.image.title="Reefy IP Router" org.opencontainers.image.version="v2026.10.28-05"
 CMD ["python3", "server.py"]
