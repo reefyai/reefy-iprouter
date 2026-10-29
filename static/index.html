@@ -9,6 +9,7 @@
 <div class="divider"></div><label for="subnet">Downstream subnet</label><input id="subnet" required spellcheck="false" placeholder="10.77.0.0/24"><p class="hint">Gateway: <strong id="gateway">-</strong></p>
 <label class="check"><input id="dhcp" type="checkbox" checked><span><strong>DHCP server</strong><small>Assign addresses automatically.</small></span></label>
 <label class="check"><input id="protect_lan" type="checkbox" checked><span><strong>Protect upstream LAN</strong><small>Block private and directly connected upstream networks.</small></span></label>
+<label class="check"><input id="allow_downstream" type="checkbox" checked><span><strong>Allow downstream connections</strong><small>Allow clients to reach this router on its downstream address, including ping and SSH.</small></span></label>
 <div id="manual" class="notice" hidden>DHCP is off. Configure downstream devices with an address in this subnet, the gateway shown above, and a public DNS server.</div>
 <div class="actions"><button type="submit" id="apply">Apply and start</button><button type="button" id="stop" class="secondary" hidden>Stop routing</button></div>
 <p class="hint">Settings restore after reboot.</p></form></section>

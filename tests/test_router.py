@@ -16,7 +16,7 @@ from server import serve
 
 LINKS = [dict(name='eth0', usb=False, up=True), dict(name='usb0', usb=True, up=True)]
 ROUTES = [dict(dst='default', dev='eth0'), dict(dst='10.200.0.0/24', dev='eth0')]
-CONFIG = dict(uplink='eth0', downstream='usb0', subnet='10.77.0.0/24', dhcp=True, protect_lan=True)
+CONFIG = dict(uplink='eth0', downstream='usb0', subnet='10.77.0.0/24', dhcp=True, protect_lan=True, allow_downstream=True)
 
 
 def test_defaults_choose_usb_and_avoid_route_overlap():
@@ -34,7 +34,7 @@ def test_invalid_config_has_no_network_effect(change):
 
 
 def test_rule_order_blocks_lan_host_spoofing_and_dhcp_bypass():
-    guard, forward, inbound = firewall_rules(CONFIG)
+    guard, forward, inbound = firewall_rules(dict(CONFIG, allow_downstream=False))
     assert guard[:2] == [('-d', dest, '-p', 'udp', '--sport', '68', '--dport', '67', '-j', 'RETURN')
                          for dest in ('255.255.255.255', '10.77.0.1')]
     assert ('-d', '192.168.0.0/16', '-j', 'DROP') in guard
@@ -160,7 +160,7 @@ def test_disabled_lan_protection_survives_restart(tmp_path, monkeypatch):
 
 def test_downstream_access_defaults_on_and_is_strict_boolean():
     assert defaults(LINKS, ROUTES)['allow_downstream'] is True
-    assert validate(CONFIG, LINKS, ROUTES)['allow_downstream'] is True
+    assert validate({k:v for k,v in CONFIG.items() if k != 'allow_downstream'}, LINKS, ROUTES)['allow_downstream'] is True
     with pytest.raises(ValueError):
         validate(dict(CONFIG, allow_downstream='true'), LINKS, ROUTES)
 
@@ -179,7 +179,7 @@ def test_downstream_access_is_scoped_to_local_downstream_address():
 
 def test_downstream_access_migration_and_false_persistence(tmp_path, monkeypatch):
     import engine
-    (tmp_path/'config.json').write_text(json.dumps(CONFIG))
+    (tmp_path/'config.json').write_text(json.dumps({k:v for k,v in CONFIG.items() if k != 'allow_downstream'}))
     assert Router(tmp_path).config['allow_downstream'] is True
     monkeypatch.setattr(engine,'interfaces',lambda: LINKS)
     monkeypatch.setattr(engine,'routes',lambda: ROUTES)
