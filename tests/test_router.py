@@ -187,3 +187,19 @@ def test_downstream_access_migration_and_false_persistence(tmp_path, monkeypatch
     monkeypatch.setattr(router,'_apply',lambda value:None)
     router.apply(dict(CONFIG,allow_downstream=False))
     assert Router(tmp_path).config['allow_downstream'] is False
+
+
+def test_protection_defaults_on_and_legacy_choices_translate(tmp_path):
+    base = {k:v for k,v in CONFIG.items() if k != 'allow_downstream'}
+    assert defaults(LINKS, ROUTES)['protect_downstream'] is True
+    assert validate(base, LINKS, ROUTES)['protect_downstream'] is True
+    for allowed in (False, True):
+        migrated = validate(dict(base, allow_downstream=allowed), LINKS, ROUTES)
+        assert migrated['protect_downstream'] is (not allowed)
+        assert 'allow_downstream' not in migrated
+        (tmp_path/'config.json').write_text(json.dumps(dict(base, allow_downstream=allowed)))
+        assert Router(tmp_path).config['protect_downstream'] is (not allowed)
+    with pytest.raises(ValueError):
+        validate(dict(base, protect_downstream='true'), LINKS, ROUTES)
+    with pytest.raises(ValueError):
+        validate(dict(base, protect_downstream=True, allow_downstream=True), LINKS, ROUTES)
