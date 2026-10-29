@@ -8,7 +8,7 @@ adapter downstream. It chooses an unused private /24 subnet. Users may edit the
 subnet (/24 through /28) and disable the default-enabled DHCP server. Apply is
 explicit, so installing the app alone does not change networking.
 
-Internet-only mode blocks private/local destinations, host services, spoofed
+Internet-only mode blocks private/local destinations, host addresses outside the downstream subnet, spoofed
 sources, unsolicited inbound forwarding and IPv6 on the downstream adapter.
 Checks run before Docker destination NAT so published container ports cannot
 bypass isolation. DHCP exceptions apply only to the gateway and broadcast
@@ -69,3 +69,18 @@ blocks forwarding until the saved policy can be restored. Turning protection
 off permits upstream LAN access while retaining host-service, source-spoofing,
 IPv6 and reserved-address protections. The setting is saved with other router
 settings and can be turned back on without stopping internet sharing.
+
+
+## Downstream connections
+
+Allow downstream connections is checked by default. The optional boolean
+`allow_downstream` also defaults to true for older saved settings and callers
+that omit it. Updating an active installation therefore permits IPv4 clients
+in the configured downstream subnet to reach services listening on the router's
+address in that subnet, including ICMP, SSH and other TCP/UDP services.
+Uncheck it to restore DHCP-only access to the router. Explicit false persists
+across restart. No new listening services are started or rebound.
+
+Protect upstream LAN remains independent. Access to other host addresses,
+unsolicited forwarding from upstream, spoofed sources and IPv6 remains blocked.
+This setting does not expose the loopback-only app UI on the downstream address.
