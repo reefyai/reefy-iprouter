@@ -203,3 +203,17 @@ def test_protection_defaults_on_and_legacy_choices_translate(tmp_path):
         validate(dict(base, protect_downstream='true'), LINKS, ROUTES)
     with pytest.raises(ValueError):
         validate(dict(base, protect_downstream=True, allow_downstream=True), LINKS, ROUTES)
+
+
+def test_status_preserves_inverse_alias_for_old_open_tabs(tmp_path, monkeypatch):
+    import engine
+    monkeypatch.setattr(engine,'interfaces',lambda: LINKS)
+    monkeypatch.setattr(engine,'routes',lambda: ROUTES)
+    for protected in (False, True):
+        config = dict(CONFIG, protect_downstream=protected)
+        (tmp_path/'config.json').write_text(json.dumps(config))
+        router = Router(tmp_path)
+        visible = router.status()['config']
+        assert visible['allow_downstream'] is (not protected)
+        assert validate(visible, LINKS, ROUTES) == config
+        assert json.loads((tmp_path/'config.json').read_text()) == config

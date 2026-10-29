@@ -81,8 +81,9 @@ address in that subnet, including ICMP, SSH and other TCP/UDP services.
 
 The optional boolean `protect_downstream` replaces `allow_downstream`. Explicit
 legacy values are accepted and inverted on migration, preserving existing
-connectivity. Saved settings and status use only the new name. Sending both
-fields or non-boolean values is rejected. Existing configurations with
+connectivity. Saved settings use only the new name. Status includes a derived inverse
+allow_downstream alias so old open tabs retain their correct state. Matching
+field pairs can round-trip; conflicting pairs and non-boolean values are rejected. Existing configurations with
 allow_downstream=true therefore display protection off; no saved choice is
 silently reset. Both positions persist across restart.
 

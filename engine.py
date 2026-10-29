@@ -36,11 +36,12 @@ def routes():
 
 def downstream_protection(value):
     """Preserve explicit legacy choices; new configurations default protected."""
-    if 'protect_downstream' in value and 'allow_downstream' in value:
-        raise ValueError('Use only the downstream protection setting.')
     for key in ('protect_downstream', 'allow_downstream'):
         if key in value and type(value[key]) is not bool:
             raise ValueError('Downstream protection must be enabled or disabled.')
+    if 'protect_downstream' in value and 'allow_downstream' in value:
+        if value['protect_downstream'] == value['allow_downstream']:
+            raise ValueError('Downstream protection settings conflict.')
     if 'allow_downstream' in value:
         return not value['allow_downstream']
     return value.get('protect_downstream', True)
@@ -332,6 +333,9 @@ class Router:
                 parts = line.split()
                 if len(parts) >= 4 and (parts[0] == '0' or int(parts[0]) > time.time()):
                     clients.append(dict(address=parts[2], hostname=parts[3] if parts[3] != '*' else 'Device'))
-        return dict(config=self.config or defaults(links, table), configured=self.config is not None,
+        config = self.config or defaults(links, table)
+        # Old open tabs still read this inverse alias; persist only the new key.
+        visible_config = dict(config, allow_downstream=not config['protect_downstream'])
+        return dict(config=visible_config, configured=self.config is not None,
                     interfaces=links, clients=clients, error=self.error,
                     stopped=self.stopped, active=self.active, dhcp_running=self.dhcp is not None and self.dhcp.poll() is None)
