@@ -112,6 +112,7 @@ class Handler(BaseHTTPRequestHandler):
 HTTPServer(('0.0.0.0',8081),Handler).serve_forever()
 ''')
         start('w', sys.executable, str(internet))
+        start('r', sys.executable, str(internet))
         # Match the image: root owns /app. A capability-limited root process
         # must not depend on DAC_OVERRIDE to traverse the CI user's checkout.
         source = tmp_path / 'app-source'
@@ -140,6 +141,21 @@ HTTPServer(('0.0.0.0',8081),Handler).serve_forever()
         run('c', 'busybox', 'udhcpc', '-i', 'client0', '-n', '-q', '-t', '3', '-T', '2', '-s', str(lease_script))
         addresses = json.loads(run('c', 'ip', '-j', '-4', 'addr', 'show', 'dev', 'client0').stdout)
         assert ipaddress.ip_address(addresses[0]['addr_info'][0]['local']) in ipaddress.ip_network(config['subnet'])
+        # The omitted setting defaults on. Exercise real TCP and ICMP to
+        # the router's downstream address, in both diagnostic directions.
+        assert curl('c', 'http://10.77.0.1:8081/').returncode == 0
+        client_ip = addresses[0]['addr_info'][0]['local']
+        run('c', 'busybox', 'ping', '-c', '1', '-W', '2', '10.77.0.1')
+        run('r', 'busybox', 'ping', '-c', '1', '-W', '2', client_ip)
+        assert curl('c', 'http://10.200.0.1:8081/', check=False).returncode != 0
+        config['allow_downstream'] = False
+        post('apply', config, token)
+        assert curl('c', 'http://10.77.0.1:8081/', check=False).returncode != 0
+        assert run('c', 'busybox', 'ping', '-c', '1', '-W', '2', '10.77.0.1', check=False).returncode != 0
+        assert run('r', 'busybox', 'ping', '-c', '1', '-W', '2', client_ip, check=False).returncode != 0
+        evidence.update(default_downstream_tcp=True, default_downstream_icmp=True,
+                        router_ping_client=True, downstream_disable=True,
+                        upstream_host_address_blocked=True)
         assert curl('c', 'http://203.0.113.7:8081/').stdout == 'synthetic-internet 10.200.0.1'
         assert curl('c', 'http://10.200.0.2:8081/', check=False).returncode != 0
         assert curl('c', 'http://10.77.0.1:8080/', check=False).returncode != 0
@@ -192,6 +208,24 @@ HTTPServer(('0.0.0.0',8081),Handler).serve_forever()
         result = json.loads(post('apply', dict(config, dhcp=False), token).stdout)
         assert not result['dhcp_running']
         assert (data / 'sentinel').read_text() == 'synthetic-preserved'
+        # Enable independently of upstream protection, then verify both
+        # settings and app data survive another real process restart.
+        config = dict(config, dhcp=False, allow_downstream=True)
+        post('apply', config, token)
+        assert curl('c', 'http://10.77.0.1:8081/').returncode == 0
+        assert curl('c', 'http://10.200.0.2:8081/', check=False).returncode != 0
+        assert curl('c', 'http://10.200.0.1:8081/', check=False).returncode != 0
+        stop(app)
+        app = start('r', *app_command)
+        await_page()
+        for _ in range(15):
+            if curl('c', 'http://10.77.0.1:8081/', check=False).returncode == 0:
+                break
+            time.sleep(1)
+        assert curl('c', 'http://10.77.0.1:8081/').returncode == 0
+        assert json.loads((data / 'config.json').read_text()) == config
+        assert (data / 'sentinel').read_text() == 'synthetic-preserved'
+        evidence.update(downstream_reenable=True, downstream_preference_restored=True)
         evidence.update(result='passed', startup_restores_routing=True, dhcp_disable=True, app_data_preserved=True)
     finally:
         for process in reversed(processes):

@@ -156,3 +156,34 @@ def test_disabled_lan_protection_survives_restart(tmp_path, monkeypatch):
     router.apply(dict(CONFIG, protect_lan=False))
     assert Router(tmp_path).config['protect_lan'] is False
     assert (tmp_path/'sentinel').read_text() == 'synthetic-preserved'
+
+
+def test_downstream_access_defaults_on_and_is_strict_boolean():
+    assert defaults(LINKS, ROUTES)['allow_downstream'] is True
+    assert validate(CONFIG, LINKS, ROUTES)['allow_downstream'] is True
+    with pytest.raises(ValueError):
+        validate(dict(CONFIG, allow_downstream='true'), LINKS, ROUTES)
+
+
+def test_downstream_access_is_scoped_to_local_downstream_address():
+    enabled, _, inbound = firewall_rules(dict(CONFIG, allow_downstream=True))
+    allow = ('-d', CONFIG['subnet'], '-m', 'addrtype', '--dst-type', 'LOCAL', '-j', 'RETURN')
+    assert enabled.index(allow) < enabled.index(('-m','addrtype','--dst-type','LOCAL','-j','DROP'))
+    assert enabled.index(('!', '-s', CONFIG['subnet'], '-j', 'DROP')) < enabled.index(allow)
+    assert ('-s',CONFIG['subnet'],'-d',CONFIG['subnet'],'-j','ACCEPT') in inbound
+    disabled, _, inbound = firewall_rules(dict(CONFIG, allow_downstream=False))
+    assert allow not in disabled
+    assert inbound[-1] == ('-j','DROP')
+    assert all('--ctstate' not in r for r in inbound)
+
+
+def test_downstream_access_migration_and_false_persistence(tmp_path, monkeypatch):
+    import engine
+    (tmp_path/'config.json').write_text(json.dumps(CONFIG))
+    assert Router(tmp_path).config['allow_downstream'] is True
+    monkeypatch.setattr(engine,'interfaces',lambda: LINKS)
+    monkeypatch.setattr(engine,'routes',lambda: ROUTES)
+    router=Router(tmp_path)
+    monkeypatch.setattr(router,'_apply',lambda value:None)
+    router.apply(dict(CONFIG,allow_downstream=False))
+    assert Router(tmp_path).config['allow_downstream'] is False
