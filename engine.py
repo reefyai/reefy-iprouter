@@ -34,13 +34,24 @@ def routes():
     return json.loads(run('ip', '-j', '-4', 'route', 'show', 'table', 'all'))
 
 
+def downstream_protection(value):
+    """Preserve explicit legacy choices; new configurations default protected."""
+    if 'protect_downstream' in value and 'allow_downstream' in value:
+        raise ValueError('Use only the downstream protection setting.')
+    for key in ('protect_downstream', 'allow_downstream'):
+        if key in value and type(value[key]) is not bool:
+            raise ValueError('Downstream protection must be enabled or disabled.')
+    if 'allow_downstream' in value:
+        return not value['allow_downstream']
+    return value.get('protect_downstream', True)
+
+
 def validate(value, links, table):
-    if not isinstance(value, dict) or set(value) - {'uplink', 'downstream', 'subnet', 'dhcp', 'protect_lan', 'allow_downstream'} or not {'uplink', 'downstream', 'subnet', 'dhcp'} <= set(value):
+    if not isinstance(value, dict) or set(value) - {'uplink', 'downstream', 'subnet', 'dhcp', 'protect_lan', 'allow_downstream', 'protect_downstream'} or not {'uplink', 'downstream', 'subnet', 'dhcp'} <= set(value):
         raise ValueError('Choose two interfaces, a subnet, and the DHCP setting.')
     value = dict(value, protect_lan=value.get('protect_lan', True),
-                 allow_downstream=value.get('allow_downstream', True))
-    if type(value['allow_downstream']) is not bool:
-        raise ValueError('Downstream connections must be enabled or disabled.')
+                 protect_downstream=downstream_protection(value))
+    value.pop('allow_downstream', None)
     if type(value['protect_lan']) is not bool:
         raise ValueError('LAN protection must be enabled or disabled.')
     known = {r['name'] for r in links}
@@ -81,7 +92,7 @@ def defaults(links, table):
             return validate(dict(uplink=uplink, downstream=downstream, subnet=subnet, dhcp=True), links, table)
         except ValueError:
             pass
-    return dict(uplink=uplink, downstream=downstream, subnet='', dhcp=True, protect_lan=True, allow_downstream=True)
+    return dict(uplink=uplink, downstream=downstream, subnet='', dhcp=True, protect_lan=True, protect_downstream=True)
 
 
 def upstream_networks(uplink, links, table):
@@ -108,7 +119,7 @@ def firewall_rules(config, detected=()):
     guard = [('-d', target, '-p', 'udp', '--sport', '68', '--dport', '67', '-j', 'RETURN')
              for target in ('255.255.255.255', gateway)]
     guard += [('!', '-s', str(network), '-j', 'DROP')]
-    if config.get('allow_downstream', True):
+    if not downstream_protection(config):
         guard += [('-d', str(network), '-m', 'addrtype', '--dst-type', 'LOCAL', '-j', 'RETURN')]
     guard += [('-m', 'addrtype', '--dst-type', 'LOCAL', '-j', 'DROP')]
     targets = ALWAYS_BLOCK + (PRIVATE + tuple(detected) if config.get('protect_lan', True) else ())
@@ -120,7 +131,7 @@ def firewall_rules(config, detected=()):
                 '--ctstate', 'ESTABLISHED,RELATED', '-j', 'ACCEPT'),
                ('-o', usb, '-j', 'DROP')]
     inbound = [('-p', 'udp', '--sport', '68', '--dport', '67', '-j', 'ACCEPT')]
-    if config.get('allow_downstream', True):
+    if not downstream_protection(config):
         inbound += [('-s', str(network), '-d', str(network), '-j', 'ACCEPT')]
     inbound += [('-j', 'DROP')]
     return guard, forward, inbound
@@ -134,7 +145,8 @@ class Router:
         self.config = json.loads((self.data / 'config.json').read_text()) if (self.data / 'config.json').exists() else None
         if self.config is not None:
             self.config.setdefault('protect_lan', True)
-            self.config.setdefault('allow_downstream', True)
+            self.config['protect_downstream'] = downstream_protection(self.config)
+            self.config.pop('allow_downstream', None)
         self.protected_networks = None
         self.lock = threading.RLock()
         self.dhcp = None

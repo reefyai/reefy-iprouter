@@ -16,11 +16,11 @@ from server import serve
 
 LINKS = [dict(name='eth0', usb=False, up=True), dict(name='usb0', usb=True, up=True)]
 ROUTES = [dict(dst='default', dev='eth0'), dict(dst='10.200.0.0/24', dev='eth0')]
-CONFIG = dict(uplink='eth0', downstream='usb0', subnet='10.77.0.0/24', dhcp=True, protect_lan=True, allow_downstream=True)
+CONFIG = dict(uplink='eth0', downstream='usb0', subnet='10.77.0.0/24', dhcp=True, protect_lan=True, protect_downstream=False)
 
 
 def test_defaults_choose_usb_and_avoid_route_overlap():
-    assert defaults(LINKS, ROUTES) == CONFIG
+    assert defaults(LINKS, ROUTES) == dict(CONFIG, protect_downstream=True)
     assert defaults(LINKS, ROUTES + [dict(dst='10.77.0.0/24', dev='eth0')])['subnet'] == '10.77.1.0/24'
 
 
@@ -34,7 +34,7 @@ def test_invalid_config_has_no_network_effect(change):
 
 
 def test_rule_order_blocks_lan_host_spoofing_and_dhcp_bypass():
-    guard, forward, inbound = firewall_rules(dict(CONFIG, allow_downstream=False))
+    guard, forward, inbound = firewall_rules(dict(CONFIG, protect_downstream=True))
     assert guard[:2] == [('-d', dest, '-p', 'udp', '--sport', '68', '--dport', '67', '-j', 'RETURN')
                          for dest in ('255.255.255.255', '10.77.0.1')]
     assert ('-d', '192.168.0.0/16', '-j', 'DROP') in guard
@@ -159,19 +159,19 @@ def test_disabled_lan_protection_survives_restart(tmp_path, monkeypatch):
 
 
 def test_downstream_access_defaults_on_and_is_strict_boolean():
-    assert defaults(LINKS, ROUTES)['allow_downstream'] is True
-    assert validate({k:v for k,v in CONFIG.items() if k != 'allow_downstream'}, LINKS, ROUTES)['allow_downstream'] is True
+    assert defaults(LINKS, ROUTES)['protect_downstream'] is True
+    assert validate({k:v for k,v in CONFIG.items() if k != 'protect_downstream'}, LINKS, ROUTES)['protect_downstream'] is True
     with pytest.raises(ValueError):
         validate(dict(CONFIG, allow_downstream='true'), LINKS, ROUTES)
 
 
 def test_downstream_access_is_scoped_to_local_downstream_address():
-    enabled, _, inbound = firewall_rules(dict(CONFIG, allow_downstream=True))
+    enabled, _, inbound = firewall_rules(dict(CONFIG, protect_downstream=False))
     allow = ('-d', CONFIG['subnet'], '-m', 'addrtype', '--dst-type', 'LOCAL', '-j', 'RETURN')
     assert enabled.index(allow) < enabled.index(('-m','addrtype','--dst-type','LOCAL','-j','DROP'))
     assert enabled.index(('!', '-s', CONFIG['subnet'], '-j', 'DROP')) < enabled.index(allow)
     assert ('-s',CONFIG['subnet'],'-d',CONFIG['subnet'],'-j','ACCEPT') in inbound
-    disabled, _, inbound = firewall_rules(dict(CONFIG, allow_downstream=False))
+    disabled, _, inbound = firewall_rules(dict(CONFIG, protect_downstream=True))
     assert allow not in disabled
     assert inbound[-1] == ('-j','DROP')
     assert all('--ctstate' not in r for r in inbound)
@@ -179,18 +179,18 @@ def test_downstream_access_is_scoped_to_local_downstream_address():
 
 def test_downstream_access_migration_and_false_persistence(tmp_path, monkeypatch):
     import engine
-    (tmp_path/'config.json').write_text(json.dumps({k:v for k,v in CONFIG.items() if k != 'allow_downstream'}))
-    assert Router(tmp_path).config['allow_downstream'] is True
+    (tmp_path/'config.json').write_text(json.dumps({k:v for k,v in CONFIG.items() if k != 'protect_downstream'}))
+    assert Router(tmp_path).config['protect_downstream'] is True
     monkeypatch.setattr(engine,'interfaces',lambda: LINKS)
     monkeypatch.setattr(engine,'routes',lambda: ROUTES)
     router=Router(tmp_path)
     monkeypatch.setattr(router,'_apply',lambda value:None)
-    router.apply(dict(CONFIG,allow_downstream=False))
-    assert Router(tmp_path).config['allow_downstream'] is False
+    router.apply(dict(CONFIG,protect_downstream=False))
+    assert Router(tmp_path).config['protect_downstream'] is False
 
 
 def test_protection_defaults_on_and_legacy_choices_translate(tmp_path):
-    base = {k:v for k,v in CONFIG.items() if k != 'allow_downstream'}
+    base = {k:v for k,v in CONFIG.items() if k not in ('allow_downstream', 'protect_downstream')}
     assert defaults(LINKS, ROUTES)['protect_downstream'] is True
     assert validate(base, LINKS, ROUTES)['protect_downstream'] is True
     for allowed in (False, True):
