@@ -71,16 +71,22 @@ IPv6 and reserved-address protections. The setting is saved with other router
 settings and can be turned back on without stopping internet sharing.
 
 
-## Downstream connections
+## Downstream protection
 
-Allow downstream connections is checked by default. The optional boolean
-`allow_downstream` also defaults to true for older saved settings and callers
-that omit it. Updating an active installation therefore permits IPv4 clients
+Protect downstream LAN is checked by default for new setups and settings
+without a previous downstream choice. With protection on, clients can use DHCP
+but cannot connect to services on the router. Turn it off to allow IPv4 clients
 in the configured downstream subnet to reach services listening on the router's
 address in that subnet, including ICMP, SSH and other TCP/UDP services.
-Uncheck it to restore DHCP-only access to the router. Explicit false persists
-across restart. No new listening services are started or rebound.
+
+The optional boolean `protect_downstream` replaces `allow_downstream`. Explicit
+legacy values are accepted and inverted on migration, preserving existing
+connectivity. Saved settings use only the new name. Status includes a derived inverse
+allow_downstream alias so old open tabs retain their correct state. Matching
+field pairs can round-trip; conflicting pairs and non-boolean values are rejected. Existing configurations with
+allow_downstream=true therefore display protection off; no saved choice is
+silently reset. Both positions persist across restart.
 
 Protect upstream LAN remains independent. Access to other host addresses,
 unsolicited forwarding from upstream, spoofed sources and IPv6 remains blocked.
-This setting does not expose the loopback-only app UI on the downstream address.
+No new listening services are started or rebound. The app UI stays loopback-only.

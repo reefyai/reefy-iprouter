@@ -24,7 +24,7 @@ function render(status, reset = false) {
     $('subnet').value = status.config.subnet;
     $('dhcp').checked = status.config.dhcp;
     $('protect_lan').checked = status.config.protect_lan !== false;
-    $('allow_downstream').checked = status.config.allow_downstream !== false;
+    $('protect_downstream').checked = status.config.protect_downstream !== false;
     summary();
   }
   const enabled = status.configured && !status.stopped;
@@ -70,6 +70,6 @@ async function mutate(path, value) {
 }
 $('settings').addEventListener('input', () => { dirty = true; summary(); });
 $('settings').addEventListener('submit', event => { event.preventDefault(); mutate('/apply', {
-  uplink: $('uplink').value, downstream: $('downstream').value, subnet: $('subnet').value, dhcp: $('dhcp').checked, protect_lan: $('protect_lan').checked, allow_downstream: $('allow_downstream').checked}); });
+  uplink: $('uplink').value, downstream: $('downstream').value, subnet: $('subnet').value, dhcp: $('dhcp').checked, protect_lan: $('protect_lan').checked, protect_downstream: $('protect_downstream').checked}); });
 $('stop').addEventListener('click', () => mutate('/stop', {}));
 refresh(); setInterval(refresh, 5000);
